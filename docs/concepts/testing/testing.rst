@@ -238,7 +238,7 @@ Running JavaScript Unit Tests
 
 Before running Javascript unit tests, you will need to be running Firefox or Chrome in a place visible to edx-platform.
 If you are using Tutor Dev to run edx-platform, then you can do so by installing and enabling the
-``test-legacy-js`` plugin from `openedx-tutor-plugins`_, and then rebuilding
+``test-legacy-js`` plugin from `openedx-tutor-plugins`_, or following the instructions on the `test-legacy-js plugin README <https://github.com/openedx/openedx-tutor-plugins/tree/main/plugins/tutor-contrib-test-legacy-js#test-legacy-js-plugin-for-tutor>`_, and then rebuilding
 the ``openedx-dev`` image::
 
     tutor plugins install https://github.com/openedx/openedx-tutor-plugins/tree/main/plugins/tutor-contrib-test-legacy-js
