@@ -33,7 +33,6 @@ from xblock.core import XBlock
 from xblock.fields import Scope
 
 from cms.djangoapps.contentstore.config.waffle import SHOW_REVIEW_RULES_FLAG
-from cms.djangoapps.contentstore.toggles import ENABLE_DEFAULT_ADVANCED_PROBLEM_EDITOR_FLAG
 from cms.djangoapps.models.settings.course_grading import CourseGradingModel
 from cms.lib.ai_aside_summary_config import AiAsideSummaryConfig
 from cms.lib.xblock.upstream_sync import BadUpstream, sync_from_upstream
@@ -80,6 +79,7 @@ from .xblock_helpers import usage_key_with_run
 from ..helpers import (
     get_parent_xblock,
     import_staged_content_from_user_clipboard,
+    import_static_assets_for_library_sync,
     is_unit,
     xblock_embed_lms_url,
     xblock_lms_url,
@@ -186,11 +186,6 @@ def handle_xblock(request, usage_key_string=None):
                 # TODO: pass fields to get_block_info and only return those
                 with modulestore().bulk_operations(usage_key.course_key):
                     response = get_block_info(get_xblock(usage_key, request.user))
-                    # TODO: remove after beta testing for the new problem editor parser
-                    if response["category"] == "problem":
-                        response["metadata"]["default_to_advanced"] = (
-                            ENABLE_DEFAULT_ADVANCED_PROBLEM_EDITOR_FLAG.is_enabled()
-                        )
                     if "customReadToken" in fields:
                         parent_children = _get_block_parent_children(get_xblock(usage_key, request.user))
                         response.update(parent_children)
@@ -598,7 +593,7 @@ def _create_block(request):
         try:
             # Set `created_block.upstream` and then sync this with the upstream (library) version.
             created_block.upstream = upstream_ref
-            sync_from_upstream(downstream=created_block, user=request.user)
+            lib_block = sync_from_upstream(downstream=created_block, user=request.user)
         except BadUpstream as exc:
             _delete_item(created_block.location, request.user)
             log.exception(
@@ -606,8 +601,11 @@ def _create_block(request):
                 f"using provided library_content_key='{upstream_ref}'"
             )
             return JsonResponse({"error": str(exc)}, status=400)
+        static_file_notices = import_static_assets_for_library_sync(created_block, lib_block, request)
         modulestore().update_item(created_block, request.user.id)
-        response['upstreamRef'] = upstream_ref
+        response["upstreamRef"] = upstream_ref
+        response["static_file_notices"] = asdict(static_file_notices)
+        response["parent_locator"] = parent_locator
 
     return JsonResponse(response)
 
@@ -1559,7 +1557,7 @@ def _get_release_date(xblock, user=None):
     reset_to_default = False
     try:
         reset_to_default = xblock.start.year < 1900
-    except ValueError:
+    except (ValueError, AttributeError):
         # For old mongo courses, accessing the start attribute calls `to_json()`,
         # which raises a `ValueError` for years < 1900.
         reset_to_default = True

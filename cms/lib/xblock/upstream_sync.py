@@ -186,7 +186,7 @@ class UpstreamLink:
         )
 
 
-def sync_from_upstream(downstream: XBlock, user: User) -> None:
+def sync_from_upstream(downstream: XBlock, user: User) -> XBlock:
     """
     Update `downstream` with content+settings from the latest available version of its linked upstream content.
 
@@ -200,6 +200,7 @@ def sync_from_upstream(downstream: XBlock, user: User) -> None:
     _update_non_customizable_fields(upstream=upstream, downstream=downstream)
     _update_tags(upstream=upstream, downstream=downstream)
     downstream.upstream_version = link.version_available
+    return upstream
 
 
 def fetch_customizable_fields(*, downstream: XBlock, user: User, upstream: XBlock | None = None) -> None:
@@ -296,7 +297,11 @@ def _update_non_customizable_fields(*, upstream: XBlock, downstream: XBlock) -> 
     """
     syncable_fields = _get_synchronizable_fields(upstream, downstream)
     customizable_fields = set(downstream.get_customizable_fields().keys())
+    isVideoBlock = downstream.usage_key.block_type == "video"
     for field_name in syncable_fields - customizable_fields:
+        if isVideoBlock and field_name == 'edx_video_id':
+            # Avoid overwriting edx_video_id between blocks
+            continue
         new_upstream_value = getattr(upstream, field_name)
         setattr(downstream, field_name, new_upstream_value)
 

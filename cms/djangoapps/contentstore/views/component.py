@@ -25,7 +25,11 @@ from common.djangoapps.edxmako.shortcuts import render_to_response
 from common.djangoapps.student.auth import has_course_author_access
 from common.djangoapps.xblock_django.api import authorable_xblocks, disabled_xblocks
 from common.djangoapps.xblock_django.models import XBlockStudioConfigurationFlag
-from cms.djangoapps.contentstore.helpers import is_unit
+from cms.djangoapps.contentstore.helpers import (
+    get_parent_if_split_test,
+    is_unit,
+    is_library_content,
+)
 from cms.djangoapps.contentstore.toggles import (
     libraries_v1_enabled,
     libraries_v2_enabled,
@@ -76,6 +80,16 @@ CONTAINER_TEMPLATES = [
     "xblock-string-field-editor", "xblock-access-editor", "publish-xblock", "publish-history", "tag-list",
     "unit-outline", "container-message", "container-access", "license-selector", "copy-clipboard-button",
     "edit-title-button", "edit-upstream-alert",
+]
+
+DEFAULT_ADVANCED_MODULES = [
+    'google-calendar',
+    'google-document',
+    'lti_consumer',
+    'poll',
+    'split_test',
+    'survey',
+    'word_cloud',
 ]
 
 
@@ -148,11 +162,12 @@ def container_handler(request, usage_key_string):  # pylint: disable=too-many-st
             except ItemNotFoundError:
                 return HttpResponseBadRequest()
 
-            is_unit_page = is_unit(xblock)
-            unit = xblock if is_unit_page else None
+            if use_new_unit_page(course.id):
+                if is_unit(xblock) or is_library_content(xblock):
+                    return redirect(get_unit_url(course.id, xblock.location))
 
-            if is_unit_page and use_new_unit_page(course.id):
-                return redirect(get_unit_url(course.id, unit.location))
+                if split_xblock := get_parent_if_split_test(xblock):
+                    return redirect(get_unit_url(course.id, split_xblock.location))
 
             container_handler_context = get_container_handler_context(request, usage_key, course, xblock)
             container_handler_context.update({
@@ -440,7 +455,7 @@ def get_component_templates(courselike, library=False):  # lint-amnesty, pylint:
     # These modules should be specified as a list of strings, where the strings
     # are the names of the modules in ADVANCED_COMPONENT_TYPES that should be
     # enabled for the course.
-    course_advanced_keys = courselike.advanced_modules
+    course_advanced_keys = list(dict.fromkeys(courselike.advanced_modules + DEFAULT_ADVANCED_MODULES))
     advanced_component_templates = {
         "type": "advanced",
         "templates": [],

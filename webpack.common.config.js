@@ -130,9 +130,9 @@ module.exports = Merge.smart({
             CompletionOnViewService: './lms/static/completion/js/CompletionOnViewService.js',
 
             // Features
-            CourseSock: './openedx/features/course_experience/static/course_experience/js/CourseSock.js',
             Currency: './openedx/features/course_experience/static/course_experience/js/currency.js',
 
+            AnnouncementsView: './openedx/features/announcements/static/announcements/jsx/Announcements.jsx',
             CookiePolicyBanner: './common/static/js/src/CookiePolicyBanner.jsx',
 
             // Common
